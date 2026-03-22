@@ -1,0 +1,266 @@
+#include <Arduino.h>
+#include <GyverMotor2.h>
+
+#define ENCODER_1_A 2
+#define ENCODER_1_B 4
+#define ENCODER_2_A 3
+#define ENCODER_2_B 7
+/* the MOTOR_CW and MOTOR_CCW pins are used to drive the H-bridge
+ * the H-bridge then drives the motors, These two pins must have to 
+ * be PWM enabled, otherwise the code will not work.
+*/
+#define MOTOR_2_CW 11
+#define MOTOR_2_CCW 10
+#define MOTOR_1_CW 9
+#define MOTOR_1_CCW 8
+#include <GParser.h>
+
+volatile long int encoder_count1 = 0;
+volatile long int encoder_count2 = 0;
+volatile long int encoder_countl = 0;
+volatile long int encoder_countr = 0;
+uint32_t tmr;
+uint32_t tmr2;
+uint32_t tmr3;
+uint32_t tmr4;
+uint32_t tmrown;
+//unsigned int v1;
+//unsigned int v2;
+int s1,s2,step,f1,f2;
+
+float Kp;
+float integral, pError,v1,v2,ang,angRAW;
+
+void setup() {
+  Serial.begin(9600);
+
+step=0;
+f1=0;
+f2=0;
+  Serial.setTimeout(10);
+    tmr = millis();
+    tmr2 = millis();
+    tmr3 = millis();
+    tmr4 = millis();
+    attachInterrupt(digitalPinToInterrupt(ENCODER_1_A), encoder1, RISING);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_2_A), encoder2, RISING);
+
+    Kp = 1.15;
+
+        digitalWrite(5,255);
+        digitalWrite(6,255);
+        delay(1000);//***********************************************************************************
+}
+void loop() {
+  
+      if (Serial.available()) {
+        String s = Serial.readStringUntil(';');
+        //Serial.println(s);
+        char str[] = "1234,3.14,hello,4567,lolkek,qwerty";
+        s.toCharArray(str, 10);
+        GParser data(str, ',');
+        int am = data.split();
+        //Serial.println(am);
+        s1 = data.getInt(0);
+        s2 = data.getInt(1);
+    }
+
+
+    if (millis()-tmr2 >= 20){
+      tmrown =(millis() - tmr);
+    v1 = (((abs(encoder_count1))*100/ (tmrown/10))/3.3)*(encoder_count1/abs(encoder_count1));
+   float out1 = computeP(s1, v1, 0.01);
+    if (out1>0){analogWrite(MOTOR_1_CW,abs(out1));analogWrite(MOTOR_1_CCW,0);} else{analogWrite(MOTOR_1_CCW,abs(out1));analogWrite(MOTOR_1_CW,0);}
+    
+    v2 = (((abs(encoder_count2))*100/ (tmrown/10))/3.3)*(encoder_count2/abs(encoder_count2));
+   float out2 = computeP(s2, v2, 0.01);
+    if (out2>0){analogWrite(MOTOR_2_CW,abs(out2));analogWrite(MOTOR_2_CCW,0);} else{analogWrite(MOTOR_2_CCW,abs(out2));analogWrite(MOTOR_2_CW,0);}
+/*
+   Serial.print(s1);
+    Serial.print("  ");
+    Serial.print(v1);
+    Serial.print("  ");
+    Serial.print(out1);
+    Serial.print(" * ");
+    Serial.print(s2);
+    Serial.print("  ");
+    Serial.print(v2);
+    Serial.print("  ");
+    Serial.print(out2);
+    Serial.println("  ");
+*/encoder_countl = encoder_countl+abs(encoder_count1);
+encoder_countr= encoder_countr+abs(encoder_count2);
+    tmr = millis();
+    encoder_count1=0;
+     encoder_count2=0;
+    tmr2 = millis();}
+
+
+ //pov(90)
+ if(analogRead(2)>900){
+s1=0;
+ s2=-0;
+  if ((encoder_countl<500)and(step==0)){s1=100;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=500)and(step==0)){tmr3=millis();f1=1; }
+  if ((encoder_countr<500)and(step==0)){s2=100;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=500)and(step==0)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==0)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=1;f1=0;f2=0;}
+
+  if ((encoder_countl<190)and(step==1)){s1=80;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=190)and(step==1)){tmr3=millis();f1=1; }
+  if ((encoder_countr<190)and(step==1)){s2=-80;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=190)and(step==1)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==1)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=2;f1=0;f2=0;}
+
+  if ((encoder_countl<600)and(step==2)){s1=100;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=600)and(step==2)){tmr3=millis();f1=1; }
+  if ((encoder_countr<600)and(step==2)){s2=100;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=600)and(step==2)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==2)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=3;f1=0;f2=0;}
+
+  if ((encoder_countl<195)and(step==3)){s1=80;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=195)and(step==3)){tmr3=millis();f1=1; }
+  if ((encoder_countr<195)and(step==3)){s2=-80;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=195)and(step==3)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==3)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=4;f1=0;f2=0;}
+
+  if ((encoder_countl<550)and(step==4)){s1=100;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=550)and(step==4)){tmr3=millis();f1=1; }
+  if ((encoder_countr<550)and(step==4)){s2=100;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=550)and(step==4)){tmr4=millis();f2=1; }
+
+ if((f1==1)and(f2==1)and(step==4)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=5;f1=0;f2=0;}
+   if ((encoder_countl<500)and(step==5)){s1=-200;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=500)and(step==5)){tmr3=millis();f1=1; }
+  if ((encoder_countr<500)and(step==5)){s2=-200;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=500)and(step==5)){tmr4=millis();f2=1; }
+
+ if((f1==1)and(f2==1)and(step==5)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=6;f1=0;f2=0;}
+
+if (millis()-tmr3 <= 1000){s1=0;
+}
+if (millis()-tmr4 <= 1000){
+ s2=0;}
+
+  //Serial.println(analogRead(2));
+}else{//------------------------------------------------------
+  s1=0;
+ s2=-0;
+  if ((encoder_countl<500)and(step==0)){s1=100;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=500)and(step==0)){tmr3=millis();f1=1; }
+  if ((encoder_countr<500)and(step==0)){s2=100;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=500)and(step==0)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==0)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=1;f1=0;f2=0;}
+
+  if ((encoder_countl<200*3-20)and(step==1)){s1=80;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=200*3-20)and(step==1)){tmr3=millis();f1=1; }
+  if ((encoder_countr<200*3-20)and(step==1)){s2=-80;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=200*3-20)and(step==1)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==1)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=2;f1=0;f2=0;}
+
+  if ((encoder_countl<600)and(step==2)){s1=100;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=600)and(step==2)){tmr3=millis();f1=1; }
+  if ((encoder_countr<600)and(step==2)){s2=100;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=600)and(step==2)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==2)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=3;f1=0;f2=0;}
+
+  if ((encoder_countl<200*3-15)and(step==3)){s1=80;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=200*3-15)and(step==3)){tmr3=millis();f1=1; }
+  if ((encoder_countr<200*3-15)and(step==3)){s2=-80;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=200*3-15)and(step==3)){tmr4=millis();f2=1; }
+
+if((f1==1)and(f2==1)and(step==3)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=4;f1=0;f2=0;}
+
+  if ((encoder_countl<550)and(step==4)){s1=100;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=550)and(step==4)){tmr3=millis();f1=1; }
+  if ((encoder_countr<550)and(step==4)){s2=100;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=550)and(step==4)){tmr4=millis();f2=1; }
+ /*if ((encoder_count3<300)and(step==1)){s1=100;
+ s2=100;}//406mm 2s 100% ///170C-90DEG
+ if(encoder_count3>=300){step=0;encoder_count3=0;tmr3=millis();}*/
+ if((f1==1)and(f2==1)and(step==4)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=5;f1=0;f2=0;}
+
+   if ((encoder_countl<500)and(step==5)){s1=-250;f1=0;
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countl>=500)and(step==5)){tmr3=millis();f1=1; }
+  if ((encoder_countr<500)and(step==5)){s2=-250;f1=0;//-
+ }//406mm 2s 100% ///170C-90DEG
+if((encoder_countr>=500)and(step==5)){tmr4=millis();f2=1; }
+
+ if((f1==1)and(f2==1)and(step==5)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=6;f1=0;f2=0;}
+
+if (millis()-tmr3 <= 1000){s1=0;
+}
+if (millis()-tmr4 <= 1000){
+ s2=0;}
+
+ // Serial.print(" Znorm = ");
+}
+
+  //Serial.print(" Znorm = ");
+ // Serial.println(integral);
+
+// Serial.println(angel);
+}
+
+void encoder2() {
+
+  if (digitalRead(ENCODER_2_B) == HIGH){ // если на контакте ENCODER_B уровень high увеличиваем count
+    encoder_count2++; }// increment the count
+  else {// иначе уменьшаем count
+    encoder_count2--;}  // decrement the count  
+
+}
+void encoder1() { 
+  
+  if (digitalRead(ENCODER_1_B) == HIGH) // если на контакте ENCODER_B уровень high увеличиваем count
+    encoder_count1--; // increment the count
+  else // иначе уменьшаем count
+    encoder_count1++;  // decrement the count   
+}
+
+float computeP(float setpoint, float input, float dt) {
+    float error = setpoint + (setpoint - input);
+
+    //if (abs(input)=0){return setpoint;}
+    if ((error > setpoint)and(input==0)) {return 100;}
+    if (error>255){return 255;}
+    if (error<-255){return -255;}
+    return error * Kp;
+}
+
+/*void pov(float ang){
+  angRAW=ang*0.8;
+s1=20;
+ s2=-20;
+
+}*/
