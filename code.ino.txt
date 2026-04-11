@@ -34,22 +34,23 @@ float integral, pError,v1,v2,ang,angRAW;
 void setup() {
   Serial.begin(9600);
 
-step=0;
-f1=0;
-f2=0;
-  Serial.setTimeout(10);
+  step=0;//номер выполняемой команды
+  f1=0;//флаг окончания выполнения команды левым мотором
+  f2=0;//флаг окончания выполнения команды правым мотором
+  Serial.setTimeout(10);// время на прием сообщения, чтобы не использовать терминатор. Подобрано эмперически
     tmr = millis();
     tmr2 = millis();
-    tmr3 = millis();
-    tmr4 = millis();
-    attachInterrupt(digitalPinToInterrupt(ENCODER_1_A), encoder1, RISING);
+    tmr3 = millis();//таймер для создания паузы работы левого мотора после завершения команды левым мотором
+    tmr4 = millis();//таймер для создания паузы работы правого мотора после завершения команды правым мотором
+    attachInterrupt(digitalPinToInterrupt(ENCODER_1_A), encoder1, RISING);//подключение прерывания левого энеодера
     attachInterrupt(digitalPinToInterrupt(ENCODER_2_A), encoder2, RISING);
 
     Kp = 1.15;
-
-        digitalWrite(5,255);
+//
+    digitalWrite(5,255);
         digitalWrite(6,255);
-        delay(1000);//***********************************************************************************
+
+delay(45000);//***задержка перед началом выполнения программы********************************************************************************
 }
 void loop() {
   
