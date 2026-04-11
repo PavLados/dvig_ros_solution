@@ -19,11 +19,10 @@ volatile long int encoder_count1 = 0;
 volatile long int encoder_count2 = 0;
 volatile long int encoder_countl = 0;
 volatile long int encoder_countr = 0;
-uint32_t tmr;
-uint32_t tmr2;
+
 uint32_t tmr3;//таймер для создания паузы работы левого мотора после завершения команды левым мотором
 uint32_t tmr4;//таймер для создания паузы работы правого мотора после завершения команды правым мотором
-uint32_t tmrown;
+uint32_t tmrown; //таймер времени задержки кода работы регулятора
 //unsigned int v1; //скорость левого колеса 
 //unsigned int v2;//скорость правого колеса
 int s1,s2,step,f1,f2;//счетчики оборотовлевого и првого колеса, номер выполняемой команды, флаги окончания выполнения команды левым и правым мотором
@@ -38,8 +37,6 @@ void setup() {
   f2=0;
   Serial.setTimeout(10);// время на прием сообщения, чтобы не использовать терминатор. Подобрано эмперически
 //запуск таймеров
-  tmr = millis();
-  tmr2 = millis();
   tmr3 = millis();
   tmr4 = millis();
     attachInterrupt(digitalPinToInterrupt(ENCODER_1_A), encoder1, RISING);//подключение прерывания левого энеодера
@@ -66,7 +63,7 @@ void loop() {
         s2 = data.getInt(1);
     }
 
-
+//задание скорости на колесах, регулятор оборотов
     if (millis()-tmr2 >= 20){
       tmrown =(millis() - tmr);
     v1 = (((abs(encoder_count1))*100/ (tmrown/10))/3.3)*(encoder_count1/abs(encoder_count1));
@@ -76,7 +73,7 @@ void loop() {
     v2 = (((abs(encoder_count2))*100/ (tmrown/10))/3.3)*(encoder_count2/abs(encoder_count2));
    float out2 = computeP(s2, v2, 0.01);
     if (out2>0){analogWrite(MOTOR_2_CW,abs(out2));analogWrite(MOTOR_2_CCW,0);} else{analogWrite(MOTOR_2_CCW,abs(out2));analogWrite(MOTOR_2_CW,0);}
-/*
+/* отладочная информация
    Serial.print(s1);
     Serial.print("  ");
     Serial.print(v1);
@@ -89,7 +86,9 @@ void loop() {
     Serial.print("  ");
     Serial.print(out2);
     Serial.println("  ");
-*/encoder_countl = encoder_countl+abs(encoder_count1);
+*/
+//счетчик оборотов
+encoder_countl = encoder_countl+abs(encoder_count1);
 encoder_countr= encoder_countr+abs(encoder_count2);
     tmr = millis();
     encoder_count1=0;
@@ -98,25 +97,29 @@ encoder_countr= encoder_countr+abs(encoder_count2);
 
 
  //pov(90)
+//выбор маршрута
  if(analogRead(2)>900){
+//если команды не зададут скорость моторов то она будет = 0
 s1=0;
  s2=-0;
+
+//команда1 - движение прямо
   if ((encoder_countl<500)and(step==0)){s1=100;f1=0;
  }//406mm 2s 100% ///170C-90DEG
 if((encoder_countl>=500)and(step==0)){tmr3=millis();f1=1; }
   if ((encoder_countr<500)and(step==0)){s2=100;f1=0;//-
  }//406mm 2s 100% ///170C-90DEG
 if((encoder_countr>=500)and(step==0)){tmr4=millis();f2=1; }
-
+//условие завершения 1 команды
 if((f1==1)and(f2==1)and(step==0)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=1;f1=0;f2=0;}
-
+//команда 2 - поворот
   if ((encoder_countl<190)and(step==1)){s1=80;f1=0;
  }//406mm 2s 100% ///170C-90DEG
 if((encoder_countl>=190)and(step==1)){tmr3=millis();f1=1; }
   if ((encoder_countr<190)and(step==1)){s2=-80;f1=0;//-
  }//406mm 2s 100% ///170C-90DEG
 if((encoder_countr>=190)and(step==1)){tmr4=millis();f2=1; }
-
+//условие оканчания команды
 if((f1==1)and(f2==1)and(step==1)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=2;f1=0;f2=0;}
 
   if ((encoder_countl<600)and(step==2)){s1=100;f1=0;
@@ -154,6 +157,7 @@ if((encoder_countr>=500)and(step==5)){tmr4=millis();f2=1; }
 
  if((f1==1)and(f2==1)and(step==5)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=6;f1=0;f2=0;}
 
+//пауза между выполнениями команд
 if (millis()-tmr3 <= 1000){s1=0;
 }
 if (millis()-tmr4 <= 1000){
@@ -219,20 +223,12 @@ if((encoder_countr>=500)and(step==5)){tmr4=millis();f2=1; }
 
  if((f1==1)and(f2==1)and(step==5)){encoder_countl=0;encoder_countr=0;tmr4=millis();tmr3=millis();step=6;f1=0;f2=0;}
 
-if (millis()-tmr3 <= 1000){s1=0;
-}
-if (millis()-tmr4 <= 1000){
- s2=0;}
 
- // Serial.print(" Znorm = ");
+
 }
 
-  //Serial.print(" Znorm = ");
- // Serial.println(integral);
-
-// Serial.println(angel);
 }
-
+// обработчик прерывания энкодера - правый мотор
 void encoder2() {
 
   if (digitalRead(ENCODER_2_B) == HIGH){ // если на контакте ENCODER_B уровень high увеличиваем count
@@ -240,7 +236,7 @@ void encoder2() {
   else {// иначе уменьшаем count
     encoder_count2--;}  // decrement the count  
 
-}
+}// обработчик прерывания энкодера - левый мотор
 void encoder1() { 
   
   if (digitalRead(ENCODER_1_B) == HIGH) // если на контакте ENCODER_B уровень high увеличиваем count
@@ -248,7 +244,7 @@ void encoder1() {
   else // иначе уменьшаем count
     encoder_count1++;  // decrement the count   
 }
-
+//функция обратной связи ошибки скорости моторов
 float computeP(float setpoint, float input, float dt) {
     float error = setpoint + (setpoint - input);
 
@@ -259,9 +255,3 @@ float computeP(float setpoint, float input, float dt) {
     return error * Kp;
 }
 
-/*void pov(float ang){
-  angRAW=ang*0.8;
-s1=20;
- s2=-20;
-
-}*/
