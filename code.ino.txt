@@ -21,43 +21,43 @@ volatile long int encoder_countl = 0;
 volatile long int encoder_countr = 0;
 uint32_t tmr;
 uint32_t tmr2;
-uint32_t tmr3;
-uint32_t tmr4;
+uint32_t tmr3;//таймер для создания паузы работы левого мотора после завершения команды левым мотором
+uint32_t tmr4;//таймер для создания паузы работы правого мотора после завершения команды правым мотором
 uint32_t tmrown;
-//unsigned int v1;
-//unsigned int v2;
-int s1,s2,step,f1,f2;
+//unsigned int v1; //скорость левого колеса 
+//unsigned int v2;//скорость правого колеса
+int s1,s2,step,f1,f2;//счетчики оборотовлевого и првого колеса, номер выполняемой команды, флаги окончания выполнения команды левым и правым мотором
 
-float Kp;
-float integral, pError,v1,v2,ang,angRAW;
+float Kp;//коифецент пропорциональности для регулятора оборотов
+float pError v1,v2;//ошибка скорости колеса, скорости колес
 
 void setup() {
-  Serial.begin(9600);
-
-  step=0;//номер выполняемой команды
-  f1=0;//флаг окончания выполнения команды левым мотором
-  f2=0;//флаг окончания выполнения команды правым мотором
+  Serial.begin(9600);//инициализация поссоедовательного порта
+  step=0;
+  f1=0;
+  f2=0;
   Serial.setTimeout(10);// время на прием сообщения, чтобы не использовать терминатор. Подобрано эмперически
-    tmr = millis();
-    tmr2 = millis();
-    tmr3 = millis();//таймер для создания паузы работы левого мотора после завершения команды левым мотором
-    tmr4 = millis();//таймер для создания паузы работы правого мотора после завершения команды правым мотором
+//запуск таймеров
+  tmr = millis();
+  tmr2 = millis();
+  tmr3 = millis();
+  tmr4 = millis();
     attachInterrupt(digitalPinToInterrupt(ENCODER_1_A), encoder1, RISING);//подключение прерывания левого энеодера
-    attachInterrupt(digitalPinToInterrupt(ENCODER_2_A), encoder2, RISING);
+    attachInterrupt(digitalPinToInterrupt(ENCODER_2_A), encoder2, RISING);//подключение прерывания правого энеодера
 
-    Kp = 1.15;
-//
-    digitalWrite(5,255);
-        digitalWrite(6,255);
+  Kp = 1.15;
+// включение h моста
+  digitalWrite(5,255);
+  digitalWrite(6,255);
 
 delay(45000);//***задержка перед началом выполнения программы********************************************************************************
 }
 void loop() {
-  
+  //чтение команды из uart формат:скоростьЛевогоКолеса, скоростьПравогоКолеса
       if (Serial.available()) {
         String s = Serial.readStringUntil(';');
         //Serial.println(s);
-        char str[] = "1234,3.14,hello,4567,lolkek,qwerty";
+        char str[] = "1234,123";
         s.toCharArray(str, 10);
         GParser data(str, ',');
         int am = data.split();
